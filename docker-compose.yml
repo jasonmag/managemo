@@ -1,0 +1,70 @@
+version: "3"
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/app/Dockerfile
+    restart: always
+    command: bash -c "rm -f tmp/pids/server.pid 
+          && bundle install 
+          && yarn install
+          && yarn build
+          && yarn build:css
+          && bin/rails assets:precompile 
+          && bin/rails s -p 3000 -b '0.0.0.0'"
+    volumes:
+      - .:$RAILS_ROOT
+      - bundle:/usr/local/bundle
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - HISTFILE=$RAILS_ROOT/log/.bash_history
+    tty:
+      true
+    depends_on:
+      - db
+      - redis
+  db:
+    restart: always
+    image: postgres:13
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres_user
+      - POSTGRES_PASSWORD=postgres_password
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+  redis:
+    image: redis
+    volumes:
+      - redis_data:/data
+  # web:
+  #   build:
+  #     context: .
+  #     dockerfile: ./docker/web/Dockerfile
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./data/nginx:/etc/nginx/conf.d
+  #     - ./data/certbot/conf:/etc/letsencrypt
+  #     - ./data/certbot/www:/var/www/certbot
+  #   depends_on:
+  #     - app
+  #   ports:
+  #     - 80:80
+  #     - 443:443
+  #   command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+  # certbot:
+  #   image: certbot/certbot
+  #   restart: unless-stopped
+  #   environment:
+  #     - RAILS_ROOT=/app
+  #   volumes:
+  #     - ./data/certbot/conf:/etc/letsencrypt
+  #     - ./data/certbot/www:/var/www/certbot
+  #   entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+volumes:
+  pg_data:
+  redis_data:
+  bundle:
